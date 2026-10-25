@@ -1,0 +1,39 @@
+[Unit]
+Description=Grant specific capabilities to other processes
+Documentation=https://github.com/thkukuk/cap-grant
+Requires=cap-grantd.socket
+After=cap-grantd.socket
+DefaultDependencies=no
+Conflicts=shutdown.target
+Before=shutdown.target
+
+[Service]
+Type=notify
+ExecStart=/usr/libexec/cap-grantd --socket
+Restart=on-failure
+
+CapabilityBoundingSet=CAP_NET_RAW CAP_SYS_NICE
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+NoNewPrivileges=yes
+#DynamicUser=yes
+#LockPersonality=yes
+#MemoryDenyWriteExecute=yes
+#PrivateDevices=yes
+#PrivateIPC=yes
+#PrivateTmp=disconnected
+#ProtectControlGroups=yes
+#ProtectHome=yes
+#ProtectHostname=yes
+#ProtectKernelLogs=yes
+#ProtectKernelModules=yes
+#ProtectKernelTunables=yes
+#ProtectSystem=strict
+#RestrictNamespaces=yes
+#RestrictRealtime=yes
+#RestrictSUIDSGID=yes
+#SystemCallArchitectures=native
+#SystemCallErrorNumber=EPERM
+#SystemCallFilter=@system-service
+
+[Install]
+Also=cap-grantd.socket

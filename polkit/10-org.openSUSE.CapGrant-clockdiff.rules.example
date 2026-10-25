@@ -1,0 +1,42 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
+//
+// Example polkit rule for cap-grantd.
+//
+// Lets any local user run /usr/bin/clockdiff and use it with the
+// "SetPriority" and "Socket" varlink methods without having to
+// authenticate with the admin password, by checking the "program"
+// detail cap-grantd attaches to its polkit CheckAuthorization calls
+// (see cg_polkit_check_async() in src/cap-grantd-polkit.c).
+//
+// Without a rule like this one, these actions fall back to the
+// <defaults> in org.openSUSE.CapGrant.policy (auth_admin_keep), i.e.
+// the caller is asked for the admin password.
+//
+// To use this file, copy it (dropping the ".example" suffix) into
+// /etc/polkit-1/rules.d/ (or /usr/share/polkit-1/rules.d/ when
+// packaging it for a distribution), then restart polkit:
+//
+//   # cp 10-org.openSUSE.CapGrant-clockdiff.rules.example \
+//          /etc/polkit-1/rules.d/10-org.openSUSE.CapGrant-clockdiff.rules
+//   # systemctl restart polkit
+//
+// Add or remove entries in allowedPrograms/allowedActions to trust
+// other binaries, or to restrict this to fewer than both methods.
+
+polkit.addRule(function(action, subject) {
+	var allowedActions = [
+		"org.openSUSE.CapGrant.setpriority",
+		"org.openSUSE.CapGrant.socket"
+	];
+	var allowedPrograms = [
+		"/usr/bin/clockdiff"
+	];
+
+	if (allowedActions.indexOf(action.id) == -1)
+		return polkit.Result.NOT_HANDLED;
+
+	if (allowedPrograms.indexOf(action.lookup("program")) == -1)
+		return polkit.Result.NOT_HANDLED;
+
+	return polkit.Result.YES;
+});

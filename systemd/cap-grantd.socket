@@ -1,0 +1,16 @@
+[Unit]
+Description=cap-grantd Varlink Socket
+DefaultDependencies=no
+Conflicts=shutdown.target
+Before=sockets.target shutdown.target
+
+[Socket]
+ListenStream=/run/cap-grant/org.openSUSE.CapGrant
+FileDescriptorName=varlink
+SocketMode=0666
+RemoveOnStop=yes
+XAttrEntryPoint=user.varlink=entrypoint
+XAttrListen=user.varlink=listen
+
+[Install]
+WantedBy=sockets.target

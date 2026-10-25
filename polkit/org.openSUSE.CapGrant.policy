@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="UTF-8"?> <!--*-nxml-*-->
+<!DOCTYPE policyconfig PUBLIC "-//freedesktop//DTD PolicyKit Policy Configuration 1.0//EN"
+        "https://www.freedesktop.org/standards/PolicyKit/1/policyconfig.dtd">
+
+<!--
+  SPDX-License-Identifier: GPL-2.0-or-later
+
+  This file is part of cap-grant.
+-->
+
+<policyconfig>
+
+	<vendor>cap-grant</vendor>
+	<vendor_url>https://github.com/thkukuk/cap-grant</vendor_url>
+
+	<action id="org.openSUSE.CapGrant.socket">
+		<description gettext-domain="cap-grant">Open a privileged socket</description>
+		<message gettext-domain="cap-grant">Authentication is required to open a privileged socket.</message>
+		<defaults>
+			<allow_any>no</allow_any>
+			<allow_inactive>auth_admin_keep</allow_inactive>
+			<allow_active>auth_admin_keep</allow_active>
+		</defaults>
+	</action>
+
+	<action id="org.openSUSE.CapGrant.setpriority">
+		<description gettext-domain="cap-grant">Change the priority of a process</description>
+		<message gettext-domain="cap-grant">Authentication is required to change the priority of a process.</message>
+		<defaults>
+			<allow_any>no</allow_any>
+			<allow_inactive>auth_admin_keep</allow_inactive>
+			<allow_active>auth_admin_keep</allow_active>
+		</defaults>
+	</action>
+
+	<action id="org.openSUSE.CapGrant.set-log-level">
+		<description gettext-domain="cap-grant">Change the cap-grantd log level</description>
+		<message gettext-domain="cap-grant">Authentication is required to change the cap-grantd log level.</message>
+		<defaults>
+			<allow_any>no</allow_any>
+			<allow_inactive>auth_admin_keep</allow_inactive>
+			<allow_active>auth_admin_keep</allow_active>
+		</defaults>
+	</action>
+
+	<action id="org.openSUSE.CapGrant.quit">
+		<description gettext-domain="cap-grant">Stop the cap-grantd daemon</description>
+		<message gettext-domain="cap-grant">Authentication is required to stop the cap-grantd daemon.</message>
+		<defaults>
+			<allow_any>no</allow_any>
+			<allow_inactive>auth_admin_keep</allow_inactive>
+			<allow_active>auth_admin_keep</allow_active>
+		</defaults>
+	</action>
+
+</policyconfig>
