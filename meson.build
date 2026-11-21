@@ -36,7 +36,6 @@ possible_cc_flags = [
 		  '-fstack-clash-protection',
 		  '-Werror=return-type',
 		  '-Wbad-function-cast',
-		  '-Wcast-align',
 		  '-Wcast-qual',
                   '-Wformat-security',
 		  '-Winline',
@@ -106,7 +105,7 @@ subdir('systemd')
 subdir('polkit')
 
 # Unit tests
-#subdir('tests')
+subdir('tests')
 
 # Manual pages
 #subdir('man')

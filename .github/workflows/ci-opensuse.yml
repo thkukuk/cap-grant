@@ -3,7 +3,51 @@ name: openSUSE build & test
 on: [push, pull_request]
 
 jobs:
-  build:
+  build-gcc:
+    runs-on: ubuntu-latest
+    container: registry.opensuse.org/opensuse/tumbleweed:latest
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v7
+
+    - name: Install devel packages
+      run: |
+        zypper ref -f
+        zypper --non-interactive in --no-recommends meson gcc valgrind docbook5-xsl-stylesheets libxslt-tools systemd-devel
+
+    - name: Setup meson
+      run: meson setup build --auto-features=enabled
+
+    - name: Compile code
+      run: meson compile -v -C build
+
+    - name: Run tests
+      run: meson test -v -C build
+
+  build-clang:
+    runs-on: ubuntu-latest
+    env:
+      CC: clang
+    container: registry.opensuse.org/opensuse/tumbleweed:latest
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v7
+
+    - name: Install devel packages
+      run: |
+        zypper ref -f
+        zypper --non-interactive in --no-recommends meson clang llvm-gold gcc valgrind docbook5-xsl-stylesheets libxslt-tools systemd-devel
+
+    - name: Setup meson
+      run: meson setup build --auto-features=enabled
+
+    - name: Compile code
+      run: meson compile -v -C build
+
+    - name: Run tests
+      run: meson test -v -C build
+
+  sanitizer:
     runs-on: ubuntu-latest
     container: registry.opensuse.org/opensuse/tumbleweed:latest
     steps:
@@ -13,13 +57,16 @@ jobs:
     - name: Install devel packages
       run: |
         zypper ref
-        zypper --non-interactive in --no-recommends meson gcc systemd-devel systemd docbook5-xsl-stylesheets
+        zypper --non-interactive in --no-recommends meson gcc valgrind docbook5-xsl-stylesheets libxslt-tools systemd-devel
 
     - name: Setup meson
-      run: meson setup build -Db_sanitize=address,undefined
+      run: meson setup build --auto-features=enabled -Db_sanitize=address,undefined -Dwerror=true -Ddebug=true
 
     - name: Compile code
-      run: cd build && meson compile
+      run: meson compile -v -C build
 
     - name: Run tests
-      run: cd build && meson test
+      run: meson test -v -C build
+
+
+# meson test -v -C build --wrap='valgrind --leak-check=full --show-leak-kinds=all --error-exitcode=1'
