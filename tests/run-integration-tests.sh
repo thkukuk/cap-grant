@@ -11,6 +11,13 @@
 # Must run as root: both the mount namespace setup and some of the
 # behavior under test (lowering niceness, opening raw sockets) require
 # real root privileges in the daemon.
+#
+# Creating a mount namespace needs CAP_SYS_ADMIN, which many CI/build
+# containers drop even for root. Such containers normally already have
+# their own private /run, separate from any real host, so when unshare
+# is unavailable this script falls back to running without extra
+# isolation -- but only if nothing is already listening on our socket
+# path, to avoid ever clobbering a genuinely running cap-grantd.
 
 set -euo pipefail
 
@@ -36,20 +43,36 @@ for f in "$CAP_GRANTD" "$TEST_CLIENT"; do
     fi
 done
 
-# Re-exec ourselves inside a private mount namespace exactly once.
-if [ "${CAP_GRANT_TEST_UNSHARED:-0}" != "1" ]; then
-    export CAP_GRANT_TEST_UNSHARED=1
-    export BUILD_DIR
-    exec unshare --mount --propagation private -- "$0" "$@"
-fi
-
 SOCKET_DIR=/run/cap-grant
 SOCKET_PATH="$SOCKET_DIR/org.openSUSE.CapGrant"
 
+# Re-exec ourselves inside a private mount namespace exactly once.
+if [ "${CAP_GRANT_TEST_UNSHARED:-0}" != "1" ]; then
+    if unshare --mount --propagation private -- true 2>/dev/null; then
+        export CAP_GRANT_TEST_UNSHARED=1
+        export BUILD_DIR
+        exec unshare --mount --propagation private -- "$0" "$@"
+    fi
+
+    if [ -S "$SOCKET_PATH" ]; then
+        echo "ERROR: cannot create a private mount namespace (unshare failed, likely missing CAP_SYS_ADMIN)" >&2
+        echo "ERROR: and $SOCKET_PATH already exists; refusing to risk colliding with a running cap-grantd." >&2
+        echo "ERROR: grant CAP_SYS_ADMIN to this container, or stop that instance first." >&2
+        exit 1
+    fi
+
+    echo "WARNING: mount namespace isolation unavailable (no CAP_SYS_ADMIN); running without it" >&2
+    export CAP_GRANT_TEST_UNSHARED=1
+    export CAP_GRANT_TEST_NOT_ISOLATED=1
+fi
+
 # Overmount /run with a private tmpfs: nothing created below is visible
 # outside this mount namespace, and it disappears automatically once
-# this script (the last process using it) exits.
-mount -t tmpfs -o mode=0755,nosuid,nodev tmpfs /run
+# this script (the last process using it) exits. Skipped in the
+# unisolated fallback, where /run is whatever the container gave us.
+if [ "${CAP_GRANT_TEST_NOT_ISOLATED:-0}" != "1" ]; then
+    mount -t tmpfs -o mode=0755,nosuid,nodev tmpfs /run
+fi
 mkdir -p "$SOCKET_DIR"
 
 "$CAP_GRANTD" &
@@ -59,6 +82,12 @@ cleanup() {
     local ec=$?
     kill "$DAEMON_PID" 2>/dev/null || true
     wait "$DAEMON_PID" 2>/dev/null || true
+    # Without namespace isolation we created real entries under the
+    # container's /run; without it they'd otherwise outlive this script.
+    if [ "${CAP_GRANT_TEST_NOT_ISOLATED:-0}" = "1" ]; then
+        rm -f "$SOCKET_PATH"
+        rmdir "$SOCKET_DIR" 2>/dev/null || true
+    fi
     exit $ec
 }
 trap cleanup EXIT INT TERM
