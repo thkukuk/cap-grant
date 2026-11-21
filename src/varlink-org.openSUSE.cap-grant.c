@@ -5,15 +5,12 @@
 static SD_VARLINK_DEFINE_METHOD(
 		SetPriority,
 		SD_VARLINK_FIELD_COMMENT("Request new nice priority"),
-		SD_VARLINK_DEFINE_INPUT(Priority, SD_VARLINK_INT,  0),
-		SD_VARLINK_DEFINE_OUTPUT(Success, SD_VARLINK_BOOL, 0),
-		SD_VARLINK_DEFINE_OUTPUT(ErrorMsg, SD_VARLINK_STRING, SD_VARLINK_NULLABLE));
+		SD_VARLINK_DEFINE_INPUT(Priority, SD_VARLINK_INT,  0));
 
 static SD_VARLINK_DEFINE_METHOD(
 		Quit,
 		SD_VARLINK_FIELD_COMMENT("Stop the daemon"),
-		SD_VARLINK_DEFINE_INPUT(ExitCode, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
-		SD_VARLINK_DEFINE_OUTPUT(Success, SD_VARLINK_BOOL, 0));
+		SD_VARLINK_DEFINE_INPUT(ExitCode, SD_VARLINK_INT, SD_VARLINK_NULLABLE));
 
 static SD_VARLINK_DEFINE_METHOD(
 		Ping,
@@ -30,11 +27,7 @@ static SD_VARLINK_DEFINE_METHOD(
 		SD_VARLINK_FIELD_COMMENT("Open a socket and pass back its file descriptor"),
 		SD_VARLINK_DEFINE_INPUT(Domain, SD_VARLINK_INT, 0),
 		SD_VARLINK_DEFINE_INPUT(Type, SD_VARLINK_INT, 0),
-		SD_VARLINK_DEFINE_INPUT(Protocol, SD_VARLINK_INT, 0),
-		SD_VARLINK_DEFINE_OUTPUT(Success, SD_VARLINK_BOOL, 0),
-		SD_VARLINK_DEFINE_OUTPUT(ErrorMsg, SD_VARLINK_STRING, SD_VARLINK_NULLABLE));
-
-static SD_VARLINK_DEFINE_ERROR(InternalError);
+		SD_VARLINK_DEFINE_INPUT(Protocol, SD_VARLINK_INT, 0));
 
 SD_VARLINK_DEFINE_INTERFACE(
                 org_openSUSE_CapGrant,
@@ -49,6 +42,4 @@ SD_VARLINK_DEFINE_INTERFACE(
                 SD_VARLINK_SYMBOL_COMMENT("Sets the maximum log level."),
                 &vl_method_SetLogLevel,
 		SD_VARLINK_SYMBOL_COMMENT("Open a socket and pass back its file descriptor"),
-		&vl_method_Socket,
-		SD_VARLINK_SYMBOL_COMMENT("Internal Error"),
-		&vl_error_InternalError);
+		&vl_method_Socket);

@@ -109,11 +109,10 @@ vl_method_quit(sd_varlink *link, sd_json_variant *parameters,
     {
       log_msg(LOG_ERR, "Quit request: disabling event loop failed: %s",
 	      strerror(-r));
-      return sd_varlink_errorbo(link, "org.openSUSE.CapGrant.InternalError",
-                                SD_JSON_BUILD_PAIR_BOOLEAN("Success", false));
+      return sd_varlink_error_errno(link, r);
     }
 
-  return sd_varlink_replybo(link, SD_JSON_BUILD_PAIR_BOOLEAN("Success", true));
+  return sd_varlink_reply(link, NULL);
 }
 
 static int
@@ -125,7 +124,6 @@ vl_method_setpriority(sd_varlink *link, sd_json_variant *parameters,
     { "Priority", SD_JSON_VARIANT_INTEGER, sd_json_dispatch_int64, 0, SD_JSON_MANDATORY },
     {}
   };
-  _cleanup_(freep) char *error = NULL;
   CG_CTX *ctx = userdata;
   int64_t prio;
   pid_t process_id;
@@ -158,12 +156,10 @@ vl_method_setpriority(sd_varlink *link, sd_json_variant *parameters,
     {
       int save_errno = errno;
       log_msg(LOG_ERR, "Setpriority failed: %s", strerror(save_errno));
-      return sd_varlink_errorbo(link, "org.openSUSE.CapGrant.InternalError",
-				SD_JSON_BUILD_PAIR_BOOLEAN("Success", false),
-                                SD_JSON_BUILD_PAIR_STRING("ErrorMsg", strerror(save_errno)));
+      return sd_varlink_error_errno(link, -save_errno);
     }
 
-  return sd_varlink_replybo(link, SD_JSON_BUILD_PAIR_BOOLEAN("Success", true));
+  return sd_varlink_reply(link, NULL);
 }
 
 /* Only grant raw ICMP sockets, used e.g. for ping-style tools which
@@ -221,9 +217,7 @@ vl_method_socket(sd_varlink *link, sd_json_variant *parameters,
     {
       log_msg(LOG_WARNING, "Socket: refused request for domain=%i type=%i protocol=%i",
 	      p.domain, p.type, p.protocol);
-      return sd_varlink_errorbo(link, "org.openSUSE.CapGrant.InternalError",
-				SD_JSON_BUILD_PAIR_BOOLEAN("Success", false),
-                                SD_JSON_BUILD_PAIR_STRING("ErrorMsg", "Requested socket parameters not allowed"));
+      return sd_varlink_error(link, SD_VARLINK_ERROR_INVALID_PARAMETER, NULL);
     }
 
   int fd = socket(p.domain, p.type, p.protocol);
@@ -231,9 +225,7 @@ vl_method_socket(sd_varlink *link, sd_json_variant *parameters,
     {
       int save_errno = errno;
       log_msg(LOG_ERR, "socket() failed: %s", strerror(save_errno));
-      return sd_varlink_errorbo(link, "org.openSUSE.CapGrant.InternalError",
-				SD_JSON_BUILD_PAIR_BOOLEAN("Success", false),
-                                SD_JSON_BUILD_PAIR_STRING("ErrorMsg", strerror(save_errno)));
+      return sd_varlink_error_errno(link, -save_errno);
     }
 
   r = sd_varlink_push_fd(link, fd);
@@ -244,7 +236,7 @@ vl_method_socket(sd_varlink *link, sd_json_variant *parameters,
       return r;
     }
 
-  return sd_varlink_replybo(link, SD_JSON_BUILD_PAIR_BOOLEAN("Success", true));
+  return sd_varlink_reply(link, NULL);
 }
 
 /* Send a messages to systemd daemon, that inicialization of daemon

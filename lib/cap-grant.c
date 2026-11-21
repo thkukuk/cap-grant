@@ -23,25 +23,14 @@ connect_to_cap_grantd(sd_varlink **ret, const char *socket, char **error)
   if (r < 0)
     {
       if (error)
-	if (asprintf (error, "Failed to connect to %s: %s",
-		      socket, strerror(-r)) < 0)
-	  *error = strdup ("Out of memory");
+	if (asprintf(error, "Failed to connect to %s: %s",
+		     socket, strerror(-r)) < 0)
+	  *error = strdup("Out of memory");
       return r;
     }
 
   *ret = TAKE_PTR(link);
   return 0;
-}
-
-struct status {
-  bool success;
-  char *error;
-};
-
-static void
-status_free (struct status *var)
-{
-  var->error = mfree(var->error);
 }
 
 static void
@@ -127,15 +116,6 @@ start_pkttyagent(pid_t *ret_pid)
 int
 cap_grant_nice(int inc, char **error)
 {
-  _cleanup_(status_free) struct status p = {
-    .success = false,
-    .error = NULL,
-  };
-  static const sd_json_dispatch_field dispatch_table[] = {
-    { "Success", SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_stdbool, offsetof(struct status, success), 0 },
-    { "ErrorMsg", SD_JSON_VARIANT_STRING, sd_json_dispatch_string,  offsetof(struct status, error), 0 },
-    {}
-  };
   _cleanup_(sd_varlink_unrefp) sd_varlink *link = NULL;
   _cleanup_(sd_json_variant_unrefp) sd_json_variant *params = NULL;
   _cleanup_(stop_pkttyagentp) pid_t pkttyagent_pid = 0;
@@ -182,34 +162,20 @@ cap_grant_nice(int inc, char **error)
   if (r < 0)
     {
       if (error)
-        if (asprintf (error, "Failed to call Nice method: %s",
-                      strerror(-r)) < 0)
-          *error = strdup ("Out of memory");
-      return r;
-    }
-
-  /* dispatch before checking error_id, we may need the result for the error
-     message */
-  r = sd_json_dispatch(result, dispatch_table, SD_JSON_ALLOW_EXTENSIONS, &p);
-  if (r < 0)
-    {
-      if (error)
-        if (asprintf (error, "Failed to parse JSON answer: %s",
-                      strerror(-r)) < 0)
+        if (asprintf(error, "Failed to call SetPriority method: %s",
+                     strerror(-r)) < 0)
           *error = strdup("Out of memory");
       return r;
     }
 
   if (error_id && strlen(error_id) > 0)
     {
+      r = sd_varlink_error_to_errno(error_id, result);
       if (error)
-        {
-          if (p.error)
-            *error = strdup(p.error);
-          else
-            *error = strdup(error_id);
-        }
-      return -EIO;
+        if (asprintf(error, "SetPriority failed: %s: %s",
+                     error_id, strerror(-r)) < 0)
+          *error = strdup("Out of memory");
+      return r < 0 ? r : -EIO;
     }
 
   return 0;
@@ -218,15 +184,6 @@ cap_grant_nice(int inc, char **error)
 int
 cap_grant_socket(int domain, int type, int protocol, char **error)
 {
-  _cleanup_(status_free) struct status p = {
-    .success = false,
-    .error = NULL,
-  };
-  static const sd_json_dispatch_field dispatch_table[] = {
-    { "Success", SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_stdbool, offsetof(struct status, success), 0 },
-    { "ErrorMsg", SD_JSON_VARIANT_STRING, sd_json_dispatch_string,  offsetof(struct status, error), 0 },
-    {}
-  };
   _cleanup_(sd_varlink_unrefp) sd_varlink *link = NULL;
   _cleanup_(sd_json_variant_unrefp) sd_json_variant *params = NULL;
   _cleanup_(stop_pkttyagentp) pid_t pkttyagent_pid = 0;
@@ -243,9 +200,9 @@ cap_grant_socket(int domain, int type, int protocol, char **error)
   if (r < 0)
     {
       if (error)
-        if (asprintf (error, "Failed to enable fd passing: %s",
-                      strerror(-r)) < 0)
-          *error = strdup ("Out of memory");
+        if (asprintf(error, "Failed to enable fd passing: %s",
+                     strerror(-r)) < 0)
+          *error = strdup("Out of memory");
       return r;
     }
 
@@ -256,9 +213,9 @@ cap_grant_socket(int domain, int type, int protocol, char **error)
   if (r < 0)
     {
       if (error)
-        if (asprintf (error, "Failed to build JSON data: %s",
-                      strerror(-r)) < 0)
-          *error = strdup ("Out of memory");
+        if (asprintf(error, "Failed to build JSON data: %s",
+                     strerror(-r)) < 0)
+          *error = strdup("Out of memory");
       return r;
     }
 
@@ -267,42 +224,28 @@ cap_grant_socket(int domain, int type, int protocol, char **error)
   if (r < 0)
     {
       if (error)
-        if (asprintf (error, "Failed to call Socket method: %s",
-                      strerror(-r)) < 0)
-          *error = strdup ("Out of memory");
-      return r;
-    }
-
-  /* dispatch before checking error_id, we may need the result for the error
-     message */
-  r = sd_json_dispatch(result, dispatch_table, SD_JSON_ALLOW_EXTENSIONS, &p);
-  if (r < 0)
-    {
-      if (error)
-        if (asprintf (error, "Failed to parse JSON answer: %s",
-                      strerror(-r)) < 0)
+        if (asprintf(error, "Failed to call Socket method: %s",
+                     strerror(-r)) < 0)
           *error = strdup("Out of memory");
       return r;
     }
 
   if (error_id && strlen(error_id) > 0)
     {
+      r = sd_varlink_error_to_errno(error_id, result);
       if (error)
-        {
-          if (p.error)
-            *error = strdup(p.error);
-          else
-            *error = strdup(error_id);
-        }
-      return -EIO;
+        if (asprintf(error, "Socket failed: %s: %s",
+                     error_id, strerror(-r)) < 0)
+          *error = strdup("Out of memory");
+      return r < 0 ? r : -EIO;
     }
 
   r = sd_varlink_take_fd(link, 0);
   if (r < 0)
     {
       if (error)
-        if (asprintf (error, "Failed to receive socket fd: %s",
-                      strerror(-r)) < 0)
+        if (asprintf(error, "Failed to receive socket fd: %s",
+                     strerror(-r)) < 0)
           *error = strdup("Out of memory");
       return r;
     }
