@@ -77,6 +77,11 @@ Both functions return `0`/a non-negative fd on success or a negative
 `cap_grant_nice()` takes a relative increment (like
 [nice(2)](https://manpages.opensuse.org/nice.2) as argument) and asks the
 daemon to adjust the caller's current priority by that amount.
+`cap_grant_setpriority()` takes the same `which`/`who`/`priority` arguments
+as [setpriority(2)](https://manpages.opensuse.org/setpriority.2) and asks
+the daemon to set the caller's priority to that absolute value; `which`
+must be `PRIO_PROCESS` and `who` must be `0` or the caller's own PID, since
+the daemon only ever acts on the calling process.
 `cap_grant_socket()` takes the same arguments as `socket(2)` and returns
 a ready-to-use file descriptor passed back over the Varlink connection.
 

@@ -120,22 +120,37 @@ vl_method_setpriority(sd_varlink *link, sd_json_variant *parameters,
 		      sd_varlink_method_flags_t _unused_(flags),
 		      void *userdata)
 {
+  struct p {
+    int64_t priority;
+    int64_t which;
+    int64_t who;
+  } p = {
+    .which = PRIO_PROCESS,
+    .who = 0,
+  };
   static const sd_json_dispatch_field dispatch_table[] = {
-    { "Priority", SD_JSON_VARIANT_INTEGER, sd_json_dispatch_int64, 0, SD_JSON_MANDATORY },
+    { "Priority", SD_JSON_VARIANT_INTEGER, sd_json_dispatch_int64, offsetof(struct p, priority), SD_JSON_MANDATORY },
+    { "Which",    SD_JSON_VARIANT_INTEGER, sd_json_dispatch_int64, offsetof(struct p, which),    0 },
+    { "Who",      SD_JSON_VARIANT_INTEGER, sd_json_dispatch_int64, offsetof(struct p, who),      0 },
     {}
   };
   CG_CTX *ctx = userdata;
-  int64_t prio;
   pid_t process_id;
   int r;
 
   log_msg(LOG_INFO, "Varlink method \"SetPriority\" called...");
 
-  r = sd_varlink_dispatch(link, parameters, dispatch_table, &prio);
+  r = sd_varlink_dispatch(link, parameters, dispatch_table, &p);
   if (r != 0)
     {
       log_msg(LOG_ERR, "SetPriority request: varlink dispatch failed: %s", strerror(-r));
       return r;
+    }
+
+  if (p.which != PRIO_PROCESS)
+    {
+      log_msg(LOG_WARNING, "SetPriority: refused request with which=%li, only PRIO_PROCESS is supported", p.which);
+      return sd_varlink_error(link, SD_VARLINK_ERROR_INVALID_PARAMETER, NULL);
     }
 
   r = sd_varlink_get_peer_pid(link, &process_id);
@@ -145,13 +160,19 @@ vl_method_setpriority(sd_varlink *link, sd_json_variant *parameters,
       return r;
     }
 
-  log_msg(LOG_DEBUG, "Setpriority with Priority '%li' for process '%i' requested", prio, process_id);
+  if (p.who != 0 && p.who != process_id)
+    {
+      log_msg(LOG_WARNING, "SetPriority: refused request with who=%li for process '%i'", p.who, process_id);
+      return sd_varlink_error(link, SD_VARLINK_ERROR_INVALID_PARAMETER, NULL);
+    }
+
+  log_msg(LOG_DEBUG, "Setpriority with Priority '%li' for process '%i' requested", p.priority, process_id);
 
   r = cg_polkit_check_async(link, ctx, "org.openSUSE.CapGrant.setpriority", CG_POLKIT_ABSENT_DENY);
   if (r <= 0)
     return r;
 
-  r = setpriority(PRIO_PROCESS, process_id, prio);
+  r = setpriority(PRIO_PROCESS, process_id, p.priority);
   if (r < 0)
     {
       int save_errno = errno;

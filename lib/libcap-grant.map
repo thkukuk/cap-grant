@@ -1,6 +1,7 @@
 LIBCAP_GRANT_0.1 {
   global:
 	cap_grant_nice;
+	cap_grant_setpriority;
 	cap_grant_socket;
   local: *;
 };

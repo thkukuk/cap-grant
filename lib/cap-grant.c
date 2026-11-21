@@ -6,6 +6,7 @@
 #include <signal.h>
 #include <sys/resource.h>
 #include <sys/wait.h>
+#include <unistd.h>
 
 #include <systemd/sd-varlink.h>
 
@@ -154,6 +155,72 @@ cap_grant_nice(int inc, char **error)
         if (asprintf (error, "Failed to build JSON data: %s",
                       strerror(-r)) < 0)
           *error = strdup ("Out of memory");
+      return r;
+    }
+
+  const char *error_id;
+  r = sd_varlink_call(link, "org.openSUSE.CapGrant.SetPriority", params, &result, &error_id);
+  if (r < 0)
+    {
+      if (error)
+        if (asprintf(error, "Failed to call SetPriority method: %s",
+                     strerror(-r)) < 0)
+          *error = strdup("Out of memory");
+      return r;
+    }
+
+  if (error_id && strlen(error_id) > 0)
+    {
+      r = sd_varlink_error_to_errno(error_id, result);
+      if (error)
+        if (asprintf(error, "SetPriority failed: %s: %s",
+                     error_id, strerror(-r)) < 0)
+          *error = strdup("Out of memory");
+      return r < 0 ? r : -EIO;
+    }
+
+  return 0;
+}
+
+int
+cap_grant_setpriority(int which, id_t who, int priority, char **error)
+{
+  _cleanup_(sd_varlink_unrefp) sd_varlink *link = NULL;
+  _cleanup_(sd_json_variant_unrefp) sd_json_variant *params = NULL;
+  _cleanup_(stop_pkttyagentp) pid_t pkttyagent_pid = 0;
+  sd_json_variant *result;
+  int r;
+
+  if (which != PRIO_PROCESS)
+    {
+      if (error)
+        *error = strdup("Only PRIO_PROCESS is supported for \"which\"");
+      return -EINVAL;
+    }
+
+  if (who != 0 && who != (id_t) getpid())
+    {
+      if (error)
+        *error = strdup("\"who\" must refer to the calling process");
+      return -EINVAL;
+    }
+
+  r = connect_to_cap_grantd(&link, _VARLINK_CAP_GRANT_SOCKET, error);
+  if (r < 0)
+    return r;
+
+  (void) start_pkttyagent(&pkttyagent_pid);
+
+  r = sd_json_buildo(&params,
+                     SD_JSON_BUILD_PAIR("Priority", SD_JSON_BUILD_INTEGER(priority)),
+                     SD_JSON_BUILD_PAIR("Which", SD_JSON_BUILD_INTEGER(which)),
+                     SD_JSON_BUILD_PAIR("Who", SD_JSON_BUILD_INTEGER((int64_t) who)));
+  if (r < 0)
+    {
+      if (error)
+        if (asprintf(error, "Failed to build JSON data: %s",
+                      strerror(-r)) < 0)
+          *error = strdup("Out of memory");
       return r;
     }
 
