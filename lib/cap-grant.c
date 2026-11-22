@@ -4,9 +4,12 @@
 
 #include <errno.h>
 #include <signal.h>
+#include <spawn.h>
 #include <sys/resource.h>
 #include <sys/wait.h>
 #include <unistd.h>
+
+extern char **environ;
 
 #include <systemd/sd-varlink.h>
 
@@ -68,6 +71,10 @@ start_pkttyagent(pid_t *ret_pid)
 {
   int pipefd[2];
   pid_t pid;
+  posix_spawn_file_actions_t actions;
+  _cleanup_free_ char *process_arg = NULL;
+  _cleanup_free_ char *notify_arg = NULL;
+  int r;
 
   *ret_pid = 0;
 
@@ -77,27 +84,36 @@ start_pkttyagent(pid_t *ret_pid)
   if (pipe(pipefd) < 0)
     return -errno;
 
-  pid = fork();
-  if (pid < 0)
+  if (asprintf(&process_arg, "--process=%ld", (long) getpid()) < 0 ||
+      asprintf(&notify_arg, "--notify-fd=%d", pipefd[1]) < 0)
     {
-      int saved_errno = errno;
       close(pipefd[0]);
       close(pipefd[1]);
-      return -saved_errno;
+      return -ENOMEM;
     }
 
-  if (pid == 0)
+  char *argv[] = { (char *) "pkttyagent", process_arg, (char *) "--fallback", notify_arg, NULL };
+
+  r = posix_spawn_file_actions_init(&actions);
+  if (r != 0)
     {
-      char process_arg[32];
-      char notify_arg[32];
-
       close(pipefd[0]);
+      close(pipefd[1]);
+      return -r;
+    }
 
-      snprintf(process_arg, sizeof process_arg, "--process=%ld", (long) getppid());
-      snprintf(notify_arg, sizeof notify_arg, "--notify-fd=%d", pipefd[1]);
-
-      execlp("pkttyagent", "pkttyagent", process_arg, "--fallback", notify_arg, NULL);
-      _exit(127);
+  /* The read end is only needed by us; keep it out of the child. The
+     write end must stay open across the exec so pkttyagent can use it
+     to signal registration. */
+  r = posix_spawn_file_actions_addclose(&actions, pipefd[0]);
+  if (r == 0)
+    r = posix_spawnp(&pid, "pkttyagent", &actions, NULL, argv, environ);
+  posix_spawn_file_actions_destroy(&actions);
+  if (r != 0)
+    {
+      close(pipefd[0]);
+      close(pipefd[1]);
+      return -r;
     }
 
   close(pipefd[1]);
